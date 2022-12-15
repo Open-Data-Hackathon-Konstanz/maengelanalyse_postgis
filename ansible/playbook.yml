@@ -7,48 +7,106 @@
     - group_vars/vault.yml
 
   tasks:
-    # - block:
-    #     - name: Initial server setup (security etc.)
-    #       include_role:
-    #         name: jstet.initial_server_setup
-    #       vars:
-    #         extra_packages:
-    #           - htop
-    #           - net-tools
-    #           - vim
-    #           - postgis 
-    #           - postgresql-13-postgis-3
-    #           - python3-psycopg2
-    #         services:
-    #           - name: database
-    #             port: 5432
-    #             protocols:
-    #               - tcp
-    #               - udp
-    #   become: true
+    - block:
+        - name: Initial server setup (security etc.)
+          include_role:
+            name: jstet.initial_server_setup
+          vars:
+            extra_packages:
+              - htop
+              - net-tools
+              - vim
+              - postgis 
+              - postgresql-13-postgis-3
+              - python3-psycopg2
+              - osm2pgsql 
+              - ufw
+            firewall: false
+      become: true
+
     - block:
         - name: Installing Postgres
           include_role:
             name: geerlingguy.postgresql
           vars:
             postgresql_databases:
-              - name: main
+              - name: "{{db_name}}"
             postgresql_users:
-              - name: participant
+              - name: "{{db_user}}"
                 password: "{{ db_pw }}"
             postgres_users_no_log: false
+            postgresql_global_config_options:
+              - option: log_directory
+                value: 'log'
+              - option: listen_addresses
+                value: "*"
             postgresql_hba_entries:
               - {
                   type: host,
-                  database: main,
-                  user: participant,
-                  auth_method: scram-sha-256,
-                  address: "0.0.0.0/0",
+                  database: "{{db_name}}",
+                  user: "{{db_user}}",
+                  auth_method: md5,
+                  address: "0.0.0.0/0"
                 }
               - { type: local, database: all, user: postgres, auth_method: trust }
+              - { type: local, database: all, user: all, auth_method: trust }
+      become: true
+
+    - name: restart postgressql
+      command: systemctl restart postgresql
       become: true
 
     - name: Adds postgis extension to the database 
       community.postgresql.postgresql_ext:
         name: postgis
         db: main
+    
+    - name: Adds hstore extension to the database 
+      community.postgresql.postgresql_ext:
+        name: hstore
+        db: main
+
+    - name: adding osm data to database
+      shell: |
+        mkdir /data
+        wget -O /data/data.osm.pbf https://download.geofabrik.de/europe/germany/baden-wuerttemberg/freiburg-regbez-latest.osm.pbf
+        export PGPASSWORD={{db_pw}}
+        osm2pgsql -d "{{db_name}}" --username "{{db_user}}" --create --slim --drop --latlong --hstore-all /data/data.osm.pbf
+      become: true
+
+
+    - name: copy script to server
+      copy:
+        src: files/script.sql
+        dest: /home/user/script.sql
+    
+    - name: copy csv to server
+      template:
+        src: files/data.csv
+        dest: /data/maengel.csv
+      become: true
+        
+
+    - name: Select query to test_db with named_args
+      community.postgresql.postgresql_script:
+        db: "{{db_name}}"
+        path: /home/user/script.sql
+
+    - name: firewall
+      shell: |
+        ufw default deny incoming
+        ufw default allow outgoing
+        ufw allow 5432/tcp
+        ufw allow 5432/udp
+        ufw allow ssh
+        echo "y" | sudo ufw enable
+      become: true
+    
+    - name: restart postgressql
+      command: systemctl restart postgresql
+      become: true
+
+
+
+
+

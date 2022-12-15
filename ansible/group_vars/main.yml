@@ -1,1 +1,4 @@
 ---
+db_user: participant
+db_name: main
+table_name: maengel
