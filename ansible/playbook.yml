@@ -1,0 +1,54 @@
+---
+- hosts: all
+  gather_facts: true
+  become: false
+  vars_files:
+    - group_vars/main.yml
+    - group_vars/vault.yml
+
+  tasks:
+    # - block:
+    #     - name: Initial server setup (security etc.)
+    #       include_role:
+    #         name: jstet.initial_server_setup
+    #       vars:
+    #         extra_packages:
+    #           - htop
+    #           - net-tools
+    #           - vim
+    #           - postgis 
+    #           - postgresql-13-postgis-3
+    #           - python3-psycopg2
+    #         services:
+    #           - name: database
+    #             port: 5432
+    #             protocols:
+    #               - tcp
+    #               - udp
+    #   become: true
+    - block:
+        - name: Installing Postgres
+          include_role:
+            name: geerlingguy.postgresql
+          vars:
+            postgresql_databases:
+              - name: main
+            postgresql_users:
+              - name: participant
+                password: "{{ db_pw }}"
+            postgres_users_no_log: false
+            postgresql_hba_entries:
+              - {
+                  type: host,
+                  database: main,
+                  user: participant,
+                  auth_method: scram-sha-256,
+                  address: "0.0.0.0/0",
+                }
+              - { type: local, database: all, user: postgres, auth_method: trust }
+      become: true
+
+    - name: Adds postgis extension to the database 
+      community.postgresql.postgresql_ext:
+        name: postgis
+        db: main
