@@ -22,7 +22,7 @@ GRANT USAGE ON SCHEMA public TO readaccess;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO readaccess;
 GRANT readaccess TO {{db_user}};
 
-COPY {{table_name}}(id, description, category, address, group_, lon, lat, year, month, reported, approved, checked, checkedin, district)
+COPY {{table_name}}(id, description, category, address, group_, lon, lat, year, month, reported, approved, checked, approved_in, district)
 FROM '/data/maengel.csv'
 DELIMITER ','
 CSV HEADER;
