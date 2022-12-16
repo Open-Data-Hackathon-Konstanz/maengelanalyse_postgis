@@ -26,3 +26,20 @@ COPY {{table_name}}(id, description, category, address, group_, lon, lat, year, 
 FROM '/data/maengel.csv'
 DELIMITER ','
 CSV HEADER;
+
+ALTER TABLE maengel
+  ADD COLUMN point
+    geometry(Geometry,3857);
+
+
+
+You can create an unconstrained SRID geometry column to hold the native form and then transform to existing. Here is a contrived example assuming you have polygons that you are copying from a staging table (if you have mixed, you can set type to geometry e.g geometry(Geometry,3857):
+
+CREATE TABLE poi(gid serial primary key, 
+   geom_native geometry(POLYGON),  
+   geom_mercator geometry(POLYGON,3857) );
+
+INSERT INTO TABLE poi(geom_native, geom_mercator)
+SELECT geom, ST_Transform(geom, 3857)
+   FROM staging.imported_poly;
+
