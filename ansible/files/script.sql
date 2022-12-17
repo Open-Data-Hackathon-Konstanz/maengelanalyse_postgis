@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS {{table_name}} (
   district VARCHAR(500)
 );
 
-GRANT ALL ON schema public TO {{db_user}};
+ALTER TABLE {{table_name}} OWNER TO {{db_user}};
 
 COPY {{table_name}}(id, description, category, address, group_, lon, lat, year, month, reported, approved, checked, approved_in, district)
 FROM '/data/maengel.csv'
